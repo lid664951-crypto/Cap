@@ -56,12 +56,13 @@ async fn prewarm_shareable_content_inner(force_refresh: bool) -> Result<(), arc:
     };
 
     warmup.notify.notified().await;
-    warmup
-        .result
-        .lock()
-        .await
-        .clone()
-        .expect("ScreenCaptureKit warmup task missing result")
+
+    let result = {
+        let guard = warmup.result.lock().await;
+        guard.clone()
+    };
+
+    result.expect("ScreenCaptureKit warmup task missing result")
 }
 
 pub async fn get_shareable_content()
@@ -102,10 +103,10 @@ async fn run_warmup(task: WarmupTask) {
     task.notify.notify_waiters();
 
     let mut guard = state().warmup.lock().await;
-    if let Some(current) = guard.as_ref()
-        && Arc::ptr_eq(&current.notify, &task.notify)
-    {
-        *guard = None;
+    if let Some(current) = guard.as_ref() {
+        if Arc::ptr_eq(&current.notify, &task.notify) {
+            *guard = None;
+        }
     }
 }
 
